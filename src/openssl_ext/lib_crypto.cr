@@ -407,4 +407,13 @@ lib LibCrypto
   fun x509v3_set_ctx = X509V3_set_ctx(ctx : X509V3_CTX*, issuer : X509, subj : X509, req : X509_REQ,
                                       crl : X509_CRL, flags : Int32)
   fun x509v3_ext_conf_nid = X509V3_EXT_conf_nid(conf : Void*, ctx : X509V3_CTX*, ext_nid : Int32, value : UInt8*) : X509_EXTENSION
+
+  alias EVP_PKEY_CTX = Void*
+  fun evp_pkey_ctx_new = EVP_PKEY_CTX_new(pkey : EvpPKey*, engine : Engine) : EVP_PKEY_CTX
+  fun evp_pkey_ctx_free = EVP_PKEY_CTX_free(pkey_ctx : EVP_PKEY_CTX)
+
+  fun evp_digest_sign_init = EVP_DigestSignInit(ctx : EVP_MD_CTX, pkey_ctx : EVP_PKEY_CTX*, type : EVP_MD, engine : Engine, pkey : EvpPKey*) : Int32
+
+  RSA_PKCS1_PSS_PADDING = 6
+  fun set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_MD_CTX, pad : Int32) : Int32
 end

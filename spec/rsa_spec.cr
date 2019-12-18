@@ -136,6 +136,14 @@ k0LaJjYM2ycehinmuLHgY3qdDJgtEbt4WG5XNQzhyfaN
       rsa.verify(new_digest, signature, data).should be_true
       rsa.verify(new_digest, signature[0, 10], data).should be_false
     end
+
+    it "should be able to sign and verify data using pss" do
+      rsa = OpenSSL::PKey::RSA.new(1024)
+      data = "my test data"
+
+      signature = rsa.sign_pss("sha256", data)
+      
+    end
   end
   describe "can set parameters for more efficient decryption" do
     it "can set dmp1, dmq1, iqmp" do
