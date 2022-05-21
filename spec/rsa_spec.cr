@@ -99,6 +99,61 @@ k0LaJjYM2ycehinmuLHgY3qdDJgtEbt4WG5XNQzhyfaN
       not_encrypted_pkey = OpenSSL::PKey::RSA.new(not_encrypted)
       decoded.to_pem.should eq not_encrypted_pkey.to_pem
     end
+
+    it "can instantiate with a PEM encoded key and a passphrase multiple times with a byte slice" do
+      # At present, cannot export with passphrase - for some unknown openssl error means it writes an empty pem
+      # The following encrypted_pem has the passphrase 'test'
+      500.times do |i|
+        puts "Trying: #{i+1}"
+      key = "88cd2108b5347d973cf39cdf9053d7dd42704876d8c9a9bd8e2d168259d3ddf7".hexbytes
+        encrypted_pem = "-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: AES-256-CTR,E03017C7E49696033757EB4217D7FF2B
+
+rRAdqZFnQylZlE5oRMAcIjhVlm2oHDbIeB7oOczdB2dFLTr0IdMyGFV93/W/Ut/1
+gK/Ogay2iwlB/VI9yfRPl8Y616auc/XnE4DViX+YGB6Y8uF2up67u+PKEsRCU6zs
+dYxb3cVH6bdjxk/qEnSJ1akHg8Ht7313a98GHGhNyAgKjp+uUtcOsvuORpQf5gdk
+bdqyFFwk6lCweUkPLUb5/1dTnn1fUSZq6vPF+kbfQa3yMS6fGNWezGohiDFeYa/1
+x2F/ZdCOs8Bt7Q3+U/qw22a7o3KqTD885Q4/PYx4CzjU3bwwqZlKyf9V3jtUG+X2
+JZ5PBA1EHCoxsUUpqdH6vFGSY//OtDQigcIKRpEtfcLYg+SLJtKb3x6ReWbpcMoT
+Mm/eU+fvgTA9YarivUaFCwdxXKAxxEw/t4oihAK9TTmn5B3vXE72YGEOnUcJsUEo
+2koW2Pmv2+4nPINQ+1jfQexf919+Ki5Cr9AgXcUUqdgNQrfATkGPEU26f9Uhrt5q
+bzNqYpk5btSHVj3l8PJ0jDJC9eJAqxZhLmarKZHRoxW5geZvjrc8uFNLPxnyPNCL
+tODMZWXTfdN5V2og/VWBiW2ItYZmsq9/9+qN1Dp55LyWSZYLfCNkJsC3fmosV/XM
+b3Mu9lF21BDAsnZQ/l7i5vYoVWs6eKlm99zW8soArIQXARWGY25LS6kmAj9UBVZv
+3gYiwsBy3WAe0FwVpyapn1YKjmMWs0VWb2JePx/tCYPFAu1EuSOM8achj12Jxehd
+nOa94Kk2d2uN90QCOdLFsXmj90ZIVU1OqgU4Eceb27D4aQ==
+-----END RSA PRIVATE KEY-----"
+        # pkey = OpenSSL::RSA.new(1024)
+        # cipher = OpenSSL::Cipher.new "des"
+        # cipher.random_key
+        # cipher.random_iv
+        # cipher.update("test")
+
+        # encrypted_pem = pkey.to_pem(cipher, "test")
+
+        decoded = OpenSSL::PKey::RSA.new(encrypted_pem, key)
+
+        not_encrypted = "-----BEGIN RSA PRIVATE KEY-----
+MIICXgIBAAKBgQDKEcV691wjYrKkdC8hleFeQaSASrg+26U8vlRhEOqrc34U7PnB
+1Fj9NFUHnbq3I+oh/4TwgpLAZY3NdhVdQOmSVQv3K/Zk4MxPpqY5sLBdmMkIl2Sa
+YRTOcl7Pskr7r198c1ZgY+viu+54EcIHJTvuXppyol+lS0N3BavrET+iKQIDAQAB
+AoGASWKk3qChFLTOfg035LGjFHEwhesc+K8aVnIlAM98+mFKQ91AY1V0MBjmXIq6
++bIQYOKEbDhvhXIcSqb84U4mxPjsnNuUejMNNNmWozpLhIxAjQaKLQg7VK2agPf0
+6VvXXiWXW5V4zMM8clwp7xnuuN3Fi+qSjC6pRgA7qXdxKRECQQD93YCRaiEgE4pP
+24IgbRm0dLzKENzL5UADiHB3oMH2kfzDrkPgNMTlhQTJRxKGlQPOau4bCbDo0hIu
+O4G2T2s9AkEAy8TElOA/q7CQsPw06bYNpxLawdDxebCd5oxNEX4qhsp8vU+qBTNr
+XYZQB5ZLR/N1AdlYXSV1id52PTQumEsxXQJBAOvfToHNthFzlmM0dOdj9yov/OlS
+WZQo4R1nO/gqqY1LfyrhU7eR0A/hU90f6BqbgfncaHc+vdzUsoe6Sn71s5ECQQCX
+42UxH/L19Jf2BRkf+J82oXxEqo3Eypz4pC4yUtw6Oyc+KeqvE8P9I8f1z9bvnA7k
+wPD4BZsWmKeEOahdxvbVAkEA4L7UshRCK5kOAYg8jPIh1Rb2S/YT1r+jg1f5rq9z
+ZSAtGmS4BvaK7TIEKRZH4mgkmCzFpt/K2kJnEjDab2Px4Q==
+-----END RSA PRIVATE KEY-----"
+
+        not_encrypted_pkey = OpenSSL::PKey::RSA.new(not_encrypted)
+        decoded.to_pem.should eq not_encrypted_pkey.to_pem
+      end
+    end
   end
 
   describe "RSA-blinding" do
