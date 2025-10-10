@@ -219,6 +219,7 @@ lib LibCrypto
   fun obj_txt2nid = OBJ_txt2nid(s : UInt8*) : LibC::Int
   fun asn1_dup = ASN1_dup(i2d : Void*, d2i_of_void : Void*, x : Void*) : Void*
   fun asn1_time_free = ASN1_TIME_free(t : ASN1_TIME)
+  fun asn1_time_print = ASN1_TIME_print(bio : Bio*, tm : ASN1_TIME) : LibC::Int
   fun asn1_integer_get = ASN1_INTEGER_get(a : ASN1_INTEGER) : LibC::Long
   fun asn1_integer_set = ASN1_INTEGER_set(a : ASN1_INTEGER, v : LibC::Long) : LibC::Int
   fun bn_to_asn1_integer = BN_to_ASN1_INTEGER(bn : Bignum*, ai : ASN1_INTEGER) : ASN1_INTEGER
@@ -415,6 +416,8 @@ lib LibCrypto
   fun x509_set_version = X509_set_version(x509 : X509, version : Int64) : Int32
   fun x509_set_public_key = X509_set_pubkey(x509 : X509, pkey : EvpPKey*) : Int32
   fun x509_set_serialnumber = X509_set_serialNumber(x509 : X509, serial : ASN1_INTEGER) : Int32
+  fun x509_get_notbefore = X509_get0_notBefore(x509 : X509) : ASN1_TIME
+  fun x509_get_notafter = X509_get0_notAfter(x509 : X509) : ASN1_TIME
   fun x509_set_notbefore = X509_set1_notBefore(x509 : X509, tm : ASN1_TIME) : Int32
   fun x509_set_notafter = X509_set1_notAfter(x509 : X509, tm : ASN1_TIME) : Int32
   fun x509_set_issuer_name = X509_set_issuer_name(x509 : X509, name : X509_NAME) : Int32

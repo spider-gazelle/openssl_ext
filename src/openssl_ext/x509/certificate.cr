@@ -90,6 +90,18 @@ module OpenSSL::X509
       LibCrypto.x509_set_public_key(self, pkey)
     end
 
+    def not_before : ::Time
+      asn1_time = LibCrypto.x509_get_notbefore(self)
+      raise CertificateError.new("Could not get notBefore") unless asn1_time
+      ASN1::Time.new(asn1_time).to_time
+    end
+
+    def not_after : ::Time
+      asn1_time = LibCrypto.x509_get_notafter(self)
+      raise CertificateError.new("Could not get notAfter") unless asn1_time
+      ASN1::Time.new(asn1_time).to_time
+    end
+
     def not_before=(time : ASN1::Time)
       LibCrypto.x509_set_notbefore(self, time)
     end
