@@ -4,6 +4,9 @@ module OpenSSL::X509
   class CertificateError < X509Error; end
 
   class Certificate
+    @cached_not_before : ::Time?
+    @cached_not_after : ::Time?
+
     def initialize
       previous_def
 
@@ -91,15 +94,43 @@ module OpenSSL::X509
     end
 
     def not_before : ::Time
+      return @cached_not_before if @cached_not_before
+
       asn1_time = LibCrypto.x509_get_notbefore(self)
       raise CertificateError.new("Could not get notBefore") unless asn1_time
-      ASN1::Time.new(asn1_time).to_time
+
+      # Convert ASN1_TIME to string using BIO
+      io = IO::Memory.new
+      bio = OpenSSL::GETS_BIO.new(io)
+      if LibCrypto.asn1_time_print(bio, asn1_time) == 0
+        raise CertificateError.new("Failed to print ASN1_TIME")
+      end
+      time_str = io.to_s
+
+      # Parse the time string and cache it
+      @cached_not_before = ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time.utc.location)
+    rescue ex : ::Time::Format::Error
+      raise CertificateError.new("Failed to parse certificate time: #{ex.message}")
     end
 
     def not_after : ::Time
+      return @cached_not_after if @cached_not_after
+
       asn1_time = LibCrypto.x509_get_notafter(self)
       raise CertificateError.new("Could not get notAfter") unless asn1_time
-      ASN1::Time.new(asn1_time).to_time
+
+      # Convert ASN1_TIME to string using BIO
+      io = IO::Memory.new
+      bio = OpenSSL::GETS_BIO.new(io)
+      if LibCrypto.asn1_time_print(bio, asn1_time) == 0
+        raise CertificateError.new("Failed to print ASN1_TIME")
+      end
+      time_str = io.to_s
+
+      # Parse the time string and cache it
+      @cached_not_after = ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time.utc.location)
+    rescue ex : ::Time::Format::Error
+      raise CertificateError.new("Failed to parse certificate time: #{ex.message}")
     end
 
     def not_before=(time : ASN1::Time)

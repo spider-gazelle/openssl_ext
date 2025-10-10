@@ -1,12 +1,12 @@
 require "../lib_crypto"
 
 class OpenSSL::ASN1::Time
-  def initialize(@handle : LibCrypto::ASN1_TIME)
+  def initialize(@handle : LibCrypto::ASN1_TIME, @owned : Bool = true)
     raise OpenSSL::Error.new "Invalid handle" unless @handle
   end
 
   def initialize(period)
-    initialize LibCrypto.x509_gmtime_adj(nil, period.to_i64)
+    initialize LibCrypto.x509_gmtime_adj(nil, period.to_i64), owned: true
   end
 
   def self.days_from_now(days)
@@ -14,7 +14,8 @@ class OpenSSL::ASN1::Time
   end
 
   def finalize
-    LibCrypto.asn1_time_free(self)
+    # Only free if we own the handle
+    LibCrypto.asn1_time_free(self) if @owned
   end
 
   def to_unsafe
@@ -40,7 +41,7 @@ class OpenSSL::ASN1::Time
 
     # Parse the time string
     # Format: "MMM dd HH:mm:ss yyyy GMT" or "MMM  d HH:mm:ss yyyy GMT" (note single digit day with extra space)
-    ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time::Location::UTC)
+    ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time.utc.location)
   rescue ex : ::Time::Format::Error
     raise OpenSSL::Error.new("Failed to parse ASN1_TIME: #{ex.message}")
   end
