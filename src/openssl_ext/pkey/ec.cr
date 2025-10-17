@@ -76,6 +76,25 @@ module OpenSSL::PKey
       end
     end
 
+    # Generate EC key by curve name (supports non-NIST curves like secp256k1)
+    def self.generate_by_curve_name(curve_name : String)
+      nid = LibCrypto.obj_txt2nid(curve_name)
+      raise EcError.new("unknown curve: #{curve_name}") if nid.zero?
+
+      ec_key = LibCrypto.ec_key_new_by_curve_name(nid)
+      raise EcError.new("failed to create EC key") if ec_key.null?
+
+      LibCrypto.ec_key_set_asn1_flag(ec_key, LibCrypto::OPENSSL_EC_NAMED_CURVE)
+      if LibCrypto.ec_key_generate_key(ec_key) == 0
+        LibCrypto.ec_key_free(ec_key)
+        raise EcError.new("failed to generate EC key")
+      end
+
+      new(true).tap do |pkey|
+        LibCrypto.evp_pkey_assign(pkey, LibCrypto::EVP_PKEY_EC, ec_key.as Pointer(Void))
+      end
+    end
+
     def public_key
       f1 = ->LibCrypto.i2d_ec_pubkey
       f2 = ->LibCrypto.d2i_ec_pubkey
