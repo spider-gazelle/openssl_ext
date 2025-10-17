@@ -403,6 +403,18 @@ lib LibCrypto
   fun evp_sign_final = EVP_SignFinal(ctx : EVP_MD_CTX, md : UInt8*, s : LibC::UInt*, pkey : EvpPKey*) : LibC::Int
   fun evp_verify_final = EVP_VerifyFinal(ctx : EVP_MD_CTX, sigbuf : UInt8*, siglen : LibC::UInt, pkey : EvpPKey*) : LibC::Int
 
+  # EVP_PKEY_CTX functions for RSA-PSS
+  alias EVP_PKEY_CTX = Void*
+  fun evp_pkey_ctx_new = EVP_PKEY_CTX_new(pkey : EvpPKey*, engine : Engine) : EVP_PKEY_CTX
+  fun evp_pkey_ctx_free = EVP_PKEY_CTX_free(ctx : EVP_PKEY_CTX)
+  fun evp_pkey_sign_init = EVP_PKEY_sign_init(ctx : EVP_PKEY_CTX) : LibC::Int
+  fun evp_pkey_sign = EVP_PKEY_sign(ctx : EVP_PKEY_CTX, sig : UInt8*, siglen : LibC::SizeT*, tbs : UInt8*, tbslen : LibC::SizeT) : LibC::Int
+  fun evp_pkey_verify_init = EVP_PKEY_verify_init(ctx : EVP_PKEY_CTX) : LibC::Int
+  fun evp_pkey_verify = EVP_PKEY_verify(ctx : EVP_PKEY_CTX, sig : UInt8*, siglen : LibC::SizeT, tbs : UInt8*, tbslen : LibC::SizeT) : LibC::Int
+  fun evp_pkey_ctx_set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_PKEY_CTX, pad : LibC::Int) : LibC::Int
+  fun evp_pkey_ctx_set_signature_md = EVP_PKEY_CTX_set_signature_md(ctx : EVP_PKEY_CTX, md : EVP_MD) : LibC::Int
+  fun evp_pkey_ctx_set_rsa_pss_saltlen = EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx : EVP_PKEY_CTX, len : LibC::Int) : LibC::Int
+
   # only include for crystal versions before 1.1.0
   {% if compare_versions(Crystal::VERSION, "1.1.0") == -1 %}
     fun x509_digest = X509_digest(x509 : X509, evp_md : EVP_MD, hash : UInt8*, len : Int32*) : Int32
