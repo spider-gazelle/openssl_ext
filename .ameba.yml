@@ -1,5 +1,11 @@
-Style/TypeNames:
+Naming/TypeNames:
   Enabled: false
 
-Style/ConstantNames:
+Naming/ConstantNames:
+  Enabled: false
+
+Naming/BlockParameterName:
+  Enabled: false
+
+Lint/Typos:
   Enabled: false
