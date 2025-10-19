@@ -33,7 +33,7 @@ jobs:
       - name: Install Dependencies
         run: shards install
       - name: Ameba
-        run: ./ameba
+        run: ./bin/ameba
   test:
     strategy:
       fail-fast: false
