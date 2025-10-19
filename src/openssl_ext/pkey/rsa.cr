@@ -220,14 +220,6 @@ module OpenSSL::PKey
           LibCrypto.evp_pkey_ctx_free(ctx) unless ctx.null?
         end
       end
-    {% else %}
-      macro sign_pss(digest, data)
-        {% raise "RSA PSS operations require OpenSSL 3+" %}
-      end
-
-      macro verify_pss(digest, signature, data)
-        {% raise "RSA PSS operations require OpenSSL 3+" %}
-      end
     {% end %}
   end
 end
