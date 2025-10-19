@@ -149,75 +149,85 @@ module OpenSSL::PKey
       @blinding_on = false
     end
 
-    # Sign data using RSA-PSS padding
-    def sign_pss(digest : OpenSSL::Digest, data : String | Bytes) : Bytes
-      unless private?
-        raise RsaError.new "private key needed"
+    {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
+      # Sign data using RSA-PSS padding
+      def sign_pss(digest : OpenSSL::Digest, data : String | Bytes) : Bytes
+        unless private?
+          raise RsaError.new "private key needed"
+        end
+
+        data_slice = data.to_slice
+        digest_copy = digest.dup
+        digest_copy.update(data_slice)
+        hash = digest_copy.final
+
+        ctx = LibCrypto.evp_pkey_ctx_new(self.to_unsafe, nil)
+        raise RsaError.new "Could not create EVP_PKEY_CTX" if ctx.null?
+
+        begin
+          if LibCrypto.evp_pkey_sign_init(ctx) <= 0
+            raise RsaError.new "Could not initialize signing"
+          end
+
+          if LibCrypto.evp_pkey_ctx_set_rsa_padding(ctx, LibCrypto::Padding::PKCS1_PSS_PADDING.value) <= 0
+            raise RsaError.new "Could not set PSS padding"
+          end
+
+          if LibCrypto.evp_pkey_ctx_set_signature_md(ctx, digest.to_unsafe_md) <= 0
+            raise RsaError.new "Could not set signature digest"
+          end
+
+          # Set salt length to match digest length (recommended)
+          if LibCrypto.evp_pkey_ctx_set_rsa_pss_saltlen(ctx, -1) <= 0
+            raise RsaError.new "Could not set PSS salt length"
+          end
+
+          sig_len = LibC::SizeT.new(0)
+          if LibCrypto.evp_pkey_sign(ctx, nil, pointerof(sig_len), hash, hash.size) <= 0
+            raise RsaError.new "Could not determine signature length"
+          end
+
+          signature = Bytes.new(sig_len)
+          if LibCrypto.evp_pkey_sign(ctx, signature, pointerof(sig_len), hash, hash.size) <= 0
+            raise RsaError.new "Could not sign data"
+          end
+
+          signature[0, sig_len]
+        ensure
+          LibCrypto.evp_pkey_ctx_free(ctx) unless ctx.null?
+        end
       end
 
-      data_slice = data.to_slice
-      digest_copy = digest.dup
-      digest_copy.update(data_slice)
-      hash = digest_copy.final
+      # Verify signature using RSA-PSS padding
+      def verify_pss(digest : OpenSSL::Digest, signature : Bytes, data : String | Bytes) : Bool
+        data_slice = data.to_slice
+        digest_copy = digest.dup
+        digest_copy.update(data_slice)
+        hash = digest_copy.final
 
-      ctx = LibCrypto.evp_pkey_ctx_new(self.to_unsafe, nil)
-      raise RsaError.new "Could not create EVP_PKEY_CTX" if ctx.null?
+        ctx = LibCrypto.evp_pkey_ctx_new(self.to_unsafe, nil)
+        return false if ctx.null?
 
-      begin
-        if LibCrypto.evp_pkey_sign_init(ctx) <= 0
-          raise RsaError.new "Could not initialize signing"
+        begin
+          return false if LibCrypto.evp_pkey_verify_init(ctx) <= 0
+          return false if LibCrypto.evp_pkey_ctx_set_rsa_padding(ctx, LibCrypto::Padding::PKCS1_PSS_PADDING.value) <= 0
+          return false if LibCrypto.evp_pkey_ctx_set_signature_md(ctx, digest.to_unsafe_md) <= 0
+          return false if LibCrypto.evp_pkey_ctx_set_rsa_pss_saltlen(ctx, -1) <= 0
+
+          result = LibCrypto.evp_pkey_verify(ctx, signature, signature.size, hash, hash.size)
+          result == 1
+        ensure
+          LibCrypto.evp_pkey_ctx_free(ctx) unless ctx.null?
         end
-
-        if LibCrypto.evp_pkey_ctx_set_rsa_padding(ctx, LibCrypto::Padding::PKCS1_PSS_PADDING.value) <= 0
-          raise RsaError.new "Could not set PSS padding"
-        end
-
-        if LibCrypto.evp_pkey_ctx_set_signature_md(ctx, digest.to_unsafe_md) <= 0
-          raise RsaError.new "Could not set signature digest"
-        end
-
-        # Set salt length to match digest length (recommended)
-        if LibCrypto.evp_pkey_ctx_set_rsa_pss_saltlen(ctx, -1) <= 0
-          raise RsaError.new "Could not set PSS salt length"
-        end
-
-        sig_len = LibC::SizeT.new(0)
-        if LibCrypto.evp_pkey_sign(ctx, nil, pointerof(sig_len), hash, hash.size) <= 0
-          raise RsaError.new "Could not determine signature length"
-        end
-
-        signature = Bytes.new(sig_len)
-        if LibCrypto.evp_pkey_sign(ctx, signature, pointerof(sig_len), hash, hash.size) <= 0
-          raise RsaError.new "Could not sign data"
-        end
-
-        signature[0, sig_len]
-      ensure
-        LibCrypto.evp_pkey_ctx_free(ctx) unless ctx.null?
       end
-    end
-
-    # Verify signature using RSA-PSS padding
-    def verify_pss(digest : OpenSSL::Digest, signature : Bytes, data : String | Bytes) : Bool
-      data_slice = data.to_slice
-      digest_copy = digest.dup
-      digest_copy.update(data_slice)
-      hash = digest_copy.final
-
-      ctx = LibCrypto.evp_pkey_ctx_new(self.to_unsafe, nil)
-      return false if ctx.null?
-
-      begin
-        return false if LibCrypto.evp_pkey_verify_init(ctx) <= 0
-        return false if LibCrypto.evp_pkey_ctx_set_rsa_padding(ctx, LibCrypto::Padding::PKCS1_PSS_PADDING.value) <= 0
-        return false if LibCrypto.evp_pkey_ctx_set_signature_md(ctx, digest.to_unsafe_md) <= 0
-        return false if LibCrypto.evp_pkey_ctx_set_rsa_pss_saltlen(ctx, -1) <= 0
-
-        result = LibCrypto.evp_pkey_verify(ctx, signature, signature.size, hash, hash.size)
-        result == 1
-      ensure
-        LibCrypto.evp_pkey_ctx_free(ctx) unless ctx.null?
+    {% else %}
+      macro sign_pss(digest, data)
+        {% raise "RSA PSS operations require OpenSSL 3+" %}
       end
-    end
+
+      macro verify_pss(digest, signature, data)
+        {% raise "RSA PSS operations require OpenSSL 3+" %}
+      end
+    {% end %}
   end
 end

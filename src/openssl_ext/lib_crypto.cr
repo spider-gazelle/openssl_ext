@@ -411,9 +411,12 @@ lib LibCrypto
   fun evp_pkey_sign = EVP_PKEY_sign(ctx : EVP_PKEY_CTX, sig : UInt8*, siglen : LibC::SizeT*, tbs : UInt8*, tbslen : LibC::SizeT) : LibC::Int
   fun evp_pkey_verify_init = EVP_PKEY_verify_init(ctx : EVP_PKEY_CTX) : LibC::Int
   fun evp_pkey_verify = EVP_PKEY_verify(ctx : EVP_PKEY_CTX, sig : UInt8*, siglen : LibC::SizeT, tbs : UInt8*, tbslen : LibC::SizeT) : LibC::Int
-  fun evp_pkey_ctx_set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_PKEY_CTX, pad : LibC::Int) : LibC::Int
-  fun evp_pkey_ctx_set_signature_md = EVP_PKEY_CTX_set_signature_md(ctx : EVP_PKEY_CTX, md : EVP_MD) : LibC::Int
-  fun evp_pkey_ctx_set_rsa_pss_saltlen = EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx : EVP_PKEY_CTX, len : LibC::Int) : LibC::Int
+
+  {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
+    fun evp_pkey_ctx_set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_PKEY_CTX, pad : LibC::Int) : LibC::Int
+    fun evp_pkey_ctx_set_signature_md = EVP_PKEY_CTX_set_signature_md(ctx : EVP_PKEY_CTX, md : EVP_MD) : LibC::Int
+    fun evp_pkey_ctx_set_rsa_pss_saltlen = EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx : EVP_PKEY_CTX, len : LibC::Int) : LibC::Int
+  {% end %}
 
   # only include for crystal versions before 1.1.0
   {% if compare_versions(Crystal::VERSION, "1.1.0") == -1 %}

@@ -148,6 +148,114 @@ k0LaJjYM2ycehinmuLHgY3qdDJgtEbt4WG5XNQzhyfaN
     end
   end
 
+  {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
+    describe "PSS signing / verification" do
+      it "should be able to sign with PSS padding and verify with private key" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data"
+
+        signature = rsa.sign_pss(digest, data)
+        signature.should be_a(Bytes)
+        signature.size.should be > 0
+
+        new_digest = OpenSSL::Digest.new("sha256")
+        rsa.verify_pss(new_digest, signature, data).should be_true
+      end
+
+      it "should be able to verify PSS signature with public key" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        public_key = rsa.public_key
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data"
+
+        signature = rsa.sign_pss(digest, data)
+
+        new_digest = OpenSSL::Digest.new("sha256")
+        public_key.verify_pss(new_digest, signature, data).should be_true
+      end
+
+      it "should fail to verify PSS signature with wrong data" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data"
+
+        signature = rsa.sign_pss(digest, data)
+
+        new_digest = OpenSSL::Digest.new("sha256")
+        rsa.verify_pss(new_digest, signature, "wrong data").should be_false
+      end
+
+      it "should fail to verify PSS signature with tampered signature" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data"
+
+        signature = rsa.sign_pss(digest, data)
+        tampered_signature = signature.dup
+        tampered_signature[0] = tampered_signature[0] ^ 0xFF
+
+        new_digest = OpenSSL::Digest.new("sha256")
+        rsa.verify_pss(new_digest, tampered_signature, data).should be_false
+      end
+
+      it "should work with different digest algorithms" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        data = "my test data"
+
+        # Test with SHA256
+        digest_sha256 = OpenSSL::Digest.new("sha256")
+        signature_sha256 = rsa.sign_pss(digest_sha256, data)
+        new_digest_sha256 = OpenSSL::Digest.new("sha256")
+        rsa.verify_pss(new_digest_sha256, signature_sha256, data).should be_true
+
+        # Test with SHA512
+        digest_sha512 = OpenSSL::Digest.new("sha512")
+        signature_sha512 = rsa.sign_pss(digest_sha512, data)
+        new_digest_sha512 = OpenSSL::Digest.new("sha512")
+        rsa.verify_pss(new_digest_sha512, signature_sha512, data).should be_true
+
+        # Verify that signatures are different for different digests
+        signature_sha256.should_not eq signature_sha512
+      end
+
+      it "should work with Bytes input" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data".to_slice
+
+        signature = rsa.sign_pss(digest, data)
+
+        new_digest = OpenSSL::Digest.new("sha256")
+        rsa.verify_pss(new_digest, signature, data).should be_true
+      end
+
+      it "should raise error when trying to sign with public key only" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        public_key = rsa.public_key
+        digest = OpenSSL::Digest.new("sha256")
+        data = "my test data"
+
+        expect_raises(OpenSSL::PKey::RsaError, "private key needed") do
+          public_key.sign_pss(digest, data)
+        end
+      end
+
+      it "should fail verification with wrong digest algorithm" do
+        rsa = OpenSSL::PKey::RSA.new(2048)
+        data = "my test data"
+
+        # Sign with SHA256
+        digest_sha256 = OpenSSL::Digest.new("sha256")
+        signature = rsa.sign_pss(digest_sha256, data)
+
+        # Try to verify with SHA512 (should fail)
+        digest_sha512 = OpenSSL::Digest.new("sha512")
+        rsa.verify_pss(digest_sha512, signature, data).should be_false
+      end
+    end
+  {% end %}
+
   describe "can set parameters for more efficient decryption" do
     it "can set dmp1, dmq1, iqmp" do
     end
