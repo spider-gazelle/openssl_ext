@@ -31,6 +31,23 @@ module OpenSSL::X509
       self.new(io.gets_to_end)
     end
 
+    # Create certificate from DER (binary) format
+    def self.from_der(der : Bytes)
+      ptr = der.to_unsafe
+      x509 = LibCrypto.d2i_x509(nil, pointerof(ptr), der.size.to_i64)
+
+      raise CertificateError.new "Could not parse DER certificate" unless x509
+      new x509
+    end
+
+    def self.from_der(io : IO)
+      bio = OpenSSL::GETS_BIO.new(io)
+      x509 = LibCrypto.d2i_x509_bio(bio, nil)
+
+      raise CertificateError.new "Could not read DER certificate from IO" unless x509
+      new x509
+    end
+
     def version
       LibCrypto.x509_get_version(self)
     end
@@ -41,7 +58,7 @@ module OpenSSL::X509
 
     def serial : OpenSSL::BN
       sn = LibCrypto.x509_get_serialnumber(self)
-      OpenSSL::BN.new LibCrypto.asn1_integer_to_bn(sn)
+      OpenSSL::BN.new LibCrypto.asn1_integer_to_bn(sn, nil)
     end
 
     def serial=(index : UInt64)
@@ -175,6 +192,47 @@ module OpenSSL::X509
       io = IO::Memory.new
       to_pem(io)
       io.to_s
+    end
+
+    # Export certificate to DER (binary) format
+    def to_der(io)
+      bio = OpenSSL::GETS_BIO.new(io)
+      raise CertificateError.new "Could not convert to DER" unless LibCrypto.i2d_x509_bio(bio, self)
+    end
+
+    def to_der : Bytes
+      # Get the required size
+      ptr = Pointer(UInt8).null
+      size = LibCrypto.i2d_x509(self, pointerof(ptr))
+      raise CertificateError.new "Could not get DER size" if size <= 0
+
+      # Allocate buffer and encode
+      bytes = Bytes.new(size)
+      ptr = bytes.to_unsafe
+      actual_size = LibCrypto.i2d_x509(self, pointerof(ptr))
+      raise CertificateError.new "Could not encode to DER" if actual_size <= 0
+
+      bytes[0, actual_size]
+    end
+
+    # Get the signature algorithm
+    def signature_algorithm : String?
+      alg = LibCrypto.x509_get0_tbs_sigalg(self)
+      return nil if alg.null?
+
+      # Convert algorithm OID to string
+      io = IO::Memory.new
+      bio = OpenSSL::GETS_BIO.new(io)
+      LibCrypto.i2a_asn1_object(bio, alg.value.algorithm)
+      io.to_s
+    rescue
+      nil
+    end
+
+    # Verify the certificate's signature using a public key
+    # Returns true if signature is valid, false otherwise
+    def verify_signature(public_key : OpenSSL::PKey::PKey) : Bool
+      verify(public_key)
     end
 
     def to_unsafe_pointer

@@ -390,6 +390,9 @@ lib LibCrypto
 
   fun ec_point_point2oct = EC_POINT_point2oct(group : EC_GROUP, p : EcPoint*, form : PointConversionForm, buf : LibC::Char*, len : LibC::SizeT, bn_ctx : Void*) : LibC::SizeT
 
+  # X.509 type aliases (X509_STORE and X509_STORE_CTX are already defined in Crystal's stdlib)
+  alias X509_VERIFY_PARAM = Void*
+
   # Adding x509 Capabilities
   fun x509_name_print_ex = X509_NAME_print_ex(bio : Bio*, name : X509_NAME, indent : Int32, flags : LibC::ULong) : LibC::Int
   fun x509_gmtime_adj = X509_gmtime_adj(t : ASN1_TIME, adj : Int64) : ASN1_TIME
@@ -446,6 +449,59 @@ lib LibCrypto
   fun x509_set_issuer_name = X509_set_issuer_name(x509 : X509, name : X509_NAME) : Int32
   fun x509_sign = X509_sign(x509 : X509, pkey : EvpPKey*, md : EVP_MD) : Int32
   fun x509_verify = X509_verify(x509 : X509, pkey : EvpPKey*) : Int32
+
+  # X.509 DER encoding/decoding
+  fun d2i_x509 = d2i_X509(a : X509*, pp : UInt8**, length : LibC::Long) : X509
+  fun i2d_x509 = i2d_X509(a : X509, pp : UInt8**) : Int32
+  fun d2i_x509_bio = d2i_X509_bio(bp : Bio*, x : X509*) : X509
+  fun i2d_x509_bio = i2d_X509_bio(bp : Bio*, x : X509) : Int32
+
+  # X.509 Store and Chain Verification
+  fun x509_store_new = X509_STORE_new : X509_STORE
+  fun x509_store_free = X509_STORE_free(store : X509_STORE)
+  fun x509_store_add_cert = X509_STORE_add_cert(store : X509_STORE, x : X509) : Int32
+  fun x509_store_set_flags = X509_STORE_set_flags(store : X509_STORE, flags : LibC::ULong) : Int32
+
+  fun x509_store_ctx_new = X509_STORE_CTX_new : X509_STORE_CTX
+  fun x509_store_ctx_free = X509_STORE_CTX_free(ctx : X509_STORE_CTX)
+  fun x509_store_ctx_init = X509_STORE_CTX_init(ctx : X509_STORE_CTX, store : X509_STORE, x509 : X509, chain : Void*) : Int32
+  fun x509_verify_cert = X509_verify_cert(ctx : X509_STORE_CTX) : Int32
+  fun x509_store_ctx_get_error_depth = X509_STORE_CTX_get_error_depth(ctx : X509_STORE_CTX) : Int32
+  fun x509_verify_cert_error_string = X509_verify_cert_error_string(n : LibC::Long) : LibC::Char*
+
+  # X.509 verification flags
+  X509_V_FLAG_USE_CHECK_TIME  =     0x2_u64
+  X509_V_FLAG_CRL_CHECK       =     0x4_u64
+  X509_V_FLAG_CRL_CHECK_ALL   =     0x8_u64
+  X509_V_FLAG_IGNORE_CRITICAL =    0x10_u64
+  X509_V_FLAG_X509_STRICT     =    0x20_u64
+  X509_V_FLAG_PARTIAL_CHAIN   = 0x80000_u64
+
+  # X.509 error codes (commonly used)
+  X509_V_OK                                   =  0
+  X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT        =  2
+  X509_V_ERR_UNABLE_TO_GET_CRL                =  3
+  X509_V_ERR_UNABLE_TO_DECRYPT_CERT_SIGNATURE =  4
+  X509_V_ERR_CERT_SIGNATURE_FAILURE           =  7
+  X509_V_ERR_CERT_NOT_YET_VALID               =  9
+  X509_V_ERR_CERT_HAS_EXPIRED                 = 10
+  X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT      = 18
+  X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN        = 19
+  X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE  = 21
+  X509_V_ERR_CERT_CHAIN_TOO_LONG              = 22
+  X509_V_ERR_CERT_REVOKED                     = 23
+  X509_V_ERR_INVALID_CA                       = 24
+  X509_V_ERR_INVALID_PURPOSE                  = 26
+
+  # X.509 signature and TBS (to-be-signed) certificate access
+  {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
+    # OpenSSL 3.0+ API
+    fun x509_get0_signature = X509_get0_signature(psig : LibC::Char**, palg : X509_ALGOR*, x : X509)
+    fun x509_get0_tbs_certificate = X509_get0_tbs_sigalg(x : X509) : X509_ALGOR
+  {% else %}
+    # Legacy OpenSSL API (1.1.x)
+    fun x509_get0_signature = X509_get0_signature(psig : LibC::Char**, palg : X509_ALGOR*, x : X509)
+  {% end %}
 
   fun x509_extension_free = X509_EXTENSION_free(ex : X509_EXTENSION)
 
