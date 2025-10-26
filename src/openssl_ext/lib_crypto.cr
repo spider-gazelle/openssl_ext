@@ -348,6 +348,9 @@ lib LibCrypto
   fun ec_group_get_degree = EC_GROUP_get_degree(group : EC_GROUP) : Int32
   fun ec_curve_nist2nid = EC_curve_nist2nid(s : UInt8*) : LibC::Int
   fun ec_key_get0_public_key = EC_KEY_get0_public_key(key : EC_KEY) : EcPoint*
+  fun ec_key_set_public_key = EC_KEY_set_public_key(key : EC_KEY, pub : EcPoint*) : Int32
+  fun ec_key_get0_private_key = EC_KEY_get0_private_key(key : EC_KEY) : Bignum*
+  fun ec_key_set_private_key = EC_KEY_set_private_key(key : EC_KEY, prv : Bignum*) : Int32
   fun i2d_ecprivatekey = i2d_ECPrivateKey(key : EC_KEY, out : UInt8**) : Int32
   fun i2d_ec_pubkey = i2d_EC_PUBKEY(key : EC_KEY, out : UInt8**) : Int32
   fun d2i_ecprivatekey = d2i_ECPrivateKey(key : EC_KEY*, out : UInt8**, length : Int64) : EC_KEY
@@ -416,6 +419,11 @@ lib LibCrypto
     fun evp_pkey_ctx_set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_PKEY_CTX, pad : LibC::Int) : LibC::Int
     fun evp_pkey_ctx_set_signature_md = EVP_PKEY_CTX_set_signature_md(ctx : EVP_PKEY_CTX, md : EVP_MD) : LibC::Int
     fun evp_pkey_ctx_set_rsa_pss_saltlen = EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx : EVP_PKEY_CTX, len : LibC::Int) : LibC::Int
+
+    # EVP_PKEY_derive functions for ECDH (OpenSSL 3.x)
+    fun evp_pkey_derive_init = EVP_PKEY_derive_init(ctx : EVP_PKEY_CTX) : LibC::Int
+    fun evp_pkey_derive_set_peer = EVP_PKEY_derive_set_peer(ctx : EVP_PKEY_CTX, peer : EvpPKey*) : LibC::Int
+    fun evp_pkey_derive = EVP_PKEY_derive(ctx : EVP_PKEY_CTX, key : UInt8*, keylen : LibC::SizeT*) : LibC::Int
   {% end %}
 
   # only include for crystal versions before 1.1.0
