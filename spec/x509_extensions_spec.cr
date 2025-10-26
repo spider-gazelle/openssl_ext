@@ -63,7 +63,7 @@ describe "X.509 Certificate Extensions" do
       original_cert = Certificate.from_pem(SAMPLE_CERT_PEM)
       der_bytes = original_cert.to_der
       der_cert = Certificate.from_der(der_bytes)
-      final_pem = der_cert.to_pem
+      der_cert.to_pem
 
       # Subject should be preserved
       original_cert.subject.to_a[0][1].should eq der_cert.subject.to_a[0][1]

@@ -70,7 +70,7 @@ module OpenSSL::X509
       else
         # Use generic EVP verification
         begin
-          md_ctx = OpenSSL::Digest.new("SHA256")
+          # Pending!
           # This is a simplified check - real implementation would use EVP_MD_CTX
           # For now, we'll return false for unsupported key types
           false

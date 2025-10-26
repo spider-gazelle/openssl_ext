@@ -43,7 +43,7 @@ module OpenSSL::X509
     # - LibCrypto::X509_V_FLAG_IGNORE_CRITICAL
     # - LibCrypto::X509_V_FLAG_X509_STRICT
     # - LibCrypto::X509_V_FLAG_PARTIAL_CHAIN
-    def set_flags(flags : UInt64)
+    def flags=(flags : UInt64)
       result = LibCrypto.x509_store_set_flags(@store, flags)
       raise X509Error.new("Failed to set store flags") if result != 1
     end
@@ -67,7 +67,7 @@ module OpenSSL::X509
 
         if result == 1
           # Verification successful
-          return true
+          true
         else
           # Verification failed - get error details
           error_code = LibCrypto.x509_store_ctx_get_error(ctx)
