@@ -123,10 +123,10 @@ module OpenSSL::X509
       if LibCrypto.asn1_time_print(bio, asn1_time) == 0
         raise CertificateError.new("Failed to print ASN1_TIME")
       end
-      time_str = io.to_s
+      time_str = io.to_s.rchop(" GMT")
 
       # Parse the time string and cache it
-      result = ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time.utc.location)
+      result = ::Time.parse(time_str, "%b %e %H:%M:%S %Y", ::Time::Location::UTC)
       @cached_not_before = result
       result
     rescue ex : ::Time::Format::Error
@@ -146,10 +146,10 @@ module OpenSSL::X509
       if LibCrypto.asn1_time_print(bio, asn1_time) == 0
         raise CertificateError.new("Failed to print ASN1_TIME")
       end
-      time_str = io.to_s
+      time_str = io.to_s.rchop(" GMT")
 
       # Parse the time string and cache it
-      result = ::Time.parse(time_str, "%b %e %H:%M:%S %Y %Z", ::Time.utc.location)
+      result = ::Time.parse(time_str, "%b %e %H:%M:%S %Y", ::Time::Location::UTC)
       @cached_not_after = result
       result
     rescue ex : ::Time::Format::Error
