@@ -33,11 +33,10 @@ module OpenSSL::X509
 
     # Create certificate from DER (binary) format
     def self.from_der(der : Bytes)
-      ptr = der.to_unsafe
-      x509 = LibCrypto.d2i_x509(nil, pointerof(ptr), der.size.to_i64)
-
+      # use the crystal helper
+      x509, remaining_bytes = from_der?(der)
       raise CertificateError.new "Could not parse DER certificate" unless x509
-      new x509
+      x509
     end
 
     def self.from_der(io : IO)
@@ -213,20 +212,6 @@ module OpenSSL::X509
       raise CertificateError.new "Could not encode to DER" if actual_size <= 0
 
       bytes[0, actual_size]
-    end
-
-    # Get the signature algorithm
-    def signature_algorithm : String?
-      alg = LibCrypto.x509_get0_tbs_sigalg(self)
-      return nil if alg.null?
-
-      # Convert algorithm OID to string
-      io = IO::Memory.new
-      bio = OpenSSL::GETS_BIO.new(io)
-      LibCrypto.i2a_asn1_object(bio, alg.value.algorithm)
-      io.to_s
-    rescue
-      nil
     end
 
     # Verify the certificate's signature using a public key
