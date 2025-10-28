@@ -34,7 +34,7 @@ module OpenSSL::X509
     # Create certificate from DER (binary) format
     def self.from_der(der : Bytes)
       # use the crystal helper
-      x509, remaining_bytes = from_der?(der)
+      x509, _remaining_bytes = from_der?(der)
       raise CertificateError.new "Could not parse DER certificate" unless x509
       x509
     end
