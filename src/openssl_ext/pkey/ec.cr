@@ -5,6 +5,35 @@ module OpenSSL::PKey
   class EcError < PKeyError; end
 
   class EC < PKey
+    # Ensure EC_GROUP is properly set on a loaded EC key
+    # This fixes issues where the group becomes null after loading from PEM
+    private def self.ensure_group(ec_key : LibCrypto::EC_KEY) : Nil
+      group = LibCrypto.ec_key_get0_group(ec_key)
+
+      # If group is null or invalid, try to reconstruct it
+      if group.null?
+        # Get the curve name from the key if available
+        # For keys loaded from PEM, we need to reconstruct the group
+        # Try common curves (P-256 is most common for VAPID)
+        ["P-256", "P-384", "P-521", "secp256k1"].each do |curve_name|
+          nid = LibCrypto.ec_curve_nist2nid(curve_name)
+          next if nid.zero?
+
+          # Try to set the group
+          new_group = LibCrypto.ec_group_new_by_curve_name(nid)
+          next if new_group.null?
+
+          # Set the group on the key
+          if LibCrypto.ec_key_set_group(ec_key, new_group) == 1
+            # Group set successfully
+            LibCrypto.ec_group_free(new_group)
+            return
+          end
+          LibCrypto.ec_group_free(new_group)
+        end
+      end
+    end
+
     def self.new(key : String)
       self.new(IO::Memory.new(key))
     end
@@ -41,9 +70,12 @@ module OpenSSL::PKey
         raise EcError.new "Neither PUB or PRIV key"
       end
 
-      new(priv).tap do |pkey|
-        LibCrypto.evp_pkey_assign(pkey, LibCrypto::EVP_PKEY_EC, ec_key.as Pointer(Void))
-      end
+      # Ensure the EC_GROUP is properly set before wrapping in EVP_PKEY
+      ensure_group(ec_key)
+
+      pkey = new(priv)
+      LibCrypto.evp_pkey_assign(pkey, LibCrypto::EVP_PKEY_EC, ec_key.as Pointer(Void))
+      pkey
     end
 
     def self.new(size : Int32)

@@ -175,6 +175,155 @@ describe OpenSSL::PKey::EC do
     end
   {% end %}
 
+  describe "EC_GROUP preservation (regression test for PEM loading)" do
+    it "should preserve EC_GROUP when loading from PEM" do
+      # Generate a P-256 key
+      original = OpenSSL::PKey::EC.generate("P-256")
+      pem = original.to_pem
+
+      # Load from PEM
+      loaded = OpenSSL::PKey::EC.new(pem)
+
+      # EC_GROUP should be accessible (not null)
+      # This would previously fail with null pointer errors in some environments
+      group = loaded.group
+      group.should_not be_nil
+
+      # Group should have valid properties
+      group.degree.should eq 256
+      group.order.should_not be_nil
+    end
+
+    it "should preserve EC_GROUP for all NIST curves" do
+      # Test with standard NIST curves that are commonly available
+      ["P-256", "P-384", "P-521"].each do |curve_name|
+        # Generate key for this curve
+        original = OpenSSL::PKey::EC.generate(curve_name)
+        pem = original.to_pem
+
+        # Load from PEM
+        loaded = OpenSSL::PKey::EC.new(pem)
+
+        # EC_GROUP should be accessible
+        group = loaded.group
+        group.should_not be_nil
+
+        # Group should have valid properties
+        group.degree.should be > 0
+        group.order.should_not be_nil
+      end
+    end
+
+    it "should allow operations after loading from PEM" do
+      # Generate and export to PEM
+      original = OpenSSL::PKey::EC.generate("P-256")
+      pem = original.to_pem
+
+      # Load from PEM
+      loaded = OpenSSL::PKey::EC.new(pem)
+
+      # Should be able to extract public key bytes (requires valid EC_GROUP)
+      pub_bytes = loaded.public_key.public_key_bytes
+      pub_bytes.size.should eq 65
+      pub_bytes[0].should eq 0x04
+
+      # Should be able to extract private key bytes
+      priv_bytes = loaded.private_key_bytes
+      priv_bytes.size.should eq 32
+
+      # Should be able to sign (requires valid EC_GROUP)
+      data = "test data"
+      digest = OpenSSL::Digest.new("SHA256").update(data).final
+      signature = loaded.ec_sign(digest)
+      signature.should_not be_nil
+
+      # Should be able to verify
+      loaded.ec_verify(digest, signature).should be_true
+    end
+
+    it "should work with ECDH after loading from PEM (OpenSSL 3+)" do
+      {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
+        # Generate two keys and export to PEM
+        alice_original = OpenSSL::PKey::EC.generate("P-256")
+        bob_original = OpenSSL::PKey::EC.generate("P-256")
+
+        alice_pem = alice_original.to_pem
+        bob_pem = bob_original.to_pem
+
+        # Load from PEM
+        alice_loaded = OpenSSL::PKey::EC.new(alice_pem)
+        bob_loaded = OpenSSL::PKey::EC.new(bob_pem)
+
+        # Should be able to compute shared secret (requires valid EC_GROUP)
+        alice_shared = OpenSSL::PKey::EC.compute_shared_secret(alice_loaded, bob_loaded.public_key)
+        bob_shared = OpenSSL::PKey::EC.compute_shared_secret(bob_loaded, alice_loaded.public_key)
+
+        # Shared secrets should match
+        alice_shared.should eq bob_shared
+        alice_shared.size.should eq 32
+      {% end %}
+    end
+
+    it "should handle IO::Memory for PEM loading" do
+      # Test loading from IO (not just String)
+      original = OpenSSL::PKey::EC.generate("P-256")
+      pem_string = original.to_pem
+
+      # Create IO::Memory with PEM content
+      io = IO::Memory.new(pem_string)
+
+      # Load from IO
+      loaded = OpenSSL::PKey::EC.new(io)
+
+      # EC_GROUP should be accessible
+      group = loaded.group
+      group.should_not be_nil
+      group.degree.should eq 256
+
+      # Should be able to perform operations
+      pub_bytes = loaded.public_key.public_key_bytes
+      pub_bytes.size.should eq 65
+    end
+
+    it "should handle DER format loading" do
+      # Generate and export to DER
+      original = OpenSSL::PKey::EC.generate("P-256")
+      der = original.to_der
+
+      # Load from DER
+      loaded = OpenSSL::PKey::EC.new(der)
+
+      # EC_GROUP should be accessible
+      group = loaded.group
+      group.should_not be_nil
+      group.degree.should eq 256
+
+      # Should match original
+      loaded.to_der.should eq der
+    end
+
+    it "should handle multiple load/save cycles" do
+      # Start with a key
+      key1 = OpenSSL::PKey::EC.generate("P-256")
+
+      # PEM round-trip
+      pem1 = key1.to_pem
+      key2 = OpenSSL::PKey::EC.new(pem1)
+
+      # Second PEM round-trip
+      pem2 = key2.to_pem
+      key3 = OpenSSL::PKey::EC.new(pem2)
+
+      # All should have valid EC_GROUP
+      key1.group.degree.should eq 256
+      key2.group.degree.should eq 256
+      key3.group.degree.should eq 256
+
+      # Final PEM should match
+      pem2.should eq pem1
+    end
+  end
+
   describe "raw key bytes operations" do
     it "should export and import private key bytes" do
       # Generate a key
