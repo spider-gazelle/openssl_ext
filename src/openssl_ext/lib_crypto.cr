@@ -423,12 +423,16 @@ lib LibCrypto
     fun evp_pkey_ctx_set_rsa_padding = EVP_PKEY_CTX_set_rsa_padding(ctx : EVP_PKEY_CTX, pad : LibC::Int) : LibC::Int
     fun evp_pkey_ctx_set_signature_md = EVP_PKEY_CTX_set_signature_md(ctx : EVP_PKEY_CTX, md : EVP_MD) : LibC::Int
     fun evp_pkey_ctx_set_rsa_pss_saltlen = EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx : EVP_PKEY_CTX, len : LibC::Int) : LibC::Int
-
-    # EVP_PKEY_derive functions for ECDH (OpenSSL 3.x)
-    fun evp_pkey_derive_init = EVP_PKEY_derive_init(ctx : EVP_PKEY_CTX) : LibC::Int
-    fun evp_pkey_derive_set_peer = EVP_PKEY_derive_set_peer(ctx : EVP_PKEY_CTX, peer : EvpPKey*) : LibC::Int
-    fun evp_pkey_derive = EVP_PKEY_derive(ctx : EVP_PKEY_CTX, key : UInt8*, keylen : LibC::SizeT*) : LibC::Int
   {% end %}
+
+  # EVP_PKEY_derive functions for ECDH (available since OpenSSL 1.0.2)
+  fun evp_pkey_derive_init = EVP_PKEY_derive_init(ctx : EVP_PKEY_CTX) : LibC::Int
+  fun evp_pkey_derive_set_peer = EVP_PKEY_derive_set_peer(ctx : EVP_PKEY_CTX, peer : EvpPKey*) : LibC::Int
+  fun evp_pkey_derive = EVP_PKEY_derive(ctx : EVP_PKEY_CTX, key : UInt8*, keylen : LibC::SizeT*) : LibC::Int
+
+  # Legacy ECDH function (fallback for older OpenSSL if EVP_PKEY_derive doesn't work)
+  alias ECDH_KDF = (Void*, LibC::SizeT, Void*, LibC::SizeT, Void*) -> Void*
+  fun ecdh_compute_key = ECDH_compute_key(out : Void*, outlen : LibC::SizeT, pub_key : EcPoint*, ecdh : EC_KEY, kdf : ECDH_KDF) : LibC::Int
 
   # only include for crystal versions before 1.1.0
   {% if compare_versions(Crystal::VERSION, "1.1.0") == -1 %}

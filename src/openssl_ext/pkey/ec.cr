@@ -359,50 +359,48 @@ module OpenSSL::PKey
       LibCrypto.ec_group_get_degree LibCrypto.ec_key_get0_group(ec)
     end
 
-    {% if compare_versions(LibCrypto::OPENSSL_VERSION, "3.0.0") >= 0 %}
-      # OpenSSL 3.x ECDH using EVP_PKEY_derive
-      # Returns the raw ECDH shared secret (no KDF). Feed this into HKDF, etc.
-      def self.compute_shared_secret(
-        private_key : OpenSSL::PKey::EC,
-        peer_public_key : OpenSSL::PKey::EC,
-      ) : Bytes
-        # Grab underlying EVP_PKEY* (openssl_ext/OpenSSL::PKey::* expose to_unsafe)
-        priv_pkey = private_key.to_unsafe
-        peer_pkey = peer_public_key.to_unsafe
-        raise OpenSSL::Error.new("nil private EVP_PKEY") if priv_pkey.null?
-        raise OpenSSL::Error.new("nil peer EVP_PKEY") if peer_pkey.null?
+    # ECDH using EVP_PKEY_derive (works on OpenSSL 1.0.2+)
+    # Returns the raw ECDH shared secret (no KDF). Feed this into HKDF, etc.
+    def self.compute_shared_secret(
+      private_key : OpenSSL::PKey::EC,
+      peer_public_key : OpenSSL::PKey::EC,
+    ) : Bytes
+      # Grab underlying EVP_PKEY* (openssl_ext/OpenSSL::PKey::* expose to_unsafe)
+      priv_pkey = private_key.to_unsafe
+      peer_pkey = peer_public_key.to_unsafe
+      raise OpenSSL::Error.new("nil private EVP_PKEY") if priv_pkey.null?
+      raise OpenSSL::Error.new("nil peer EVP_PKEY") if peer_pkey.null?
 
-        # Create a derivation context bound to the private key
-        ctx = LibCrypto.evp_pkey_ctx_new(priv_pkey, nil)
-        raise OpenSSL::Error.new("EVP_PKEY_CTX_new failed") if ctx.null?
+      # Create a derivation context bound to the private key
+      ctx = LibCrypto.evp_pkey_ctx_new(priv_pkey, nil)
+      raise OpenSSL::Error.new("EVP_PKEY_CTX_new failed") if ctx.null?
 
-        begin
-          # Initialize for derive
-          rc = LibCrypto.evp_pkey_derive_init(ctx)
-          raise OpenSSL::Error.new("EVP_PKEY_derive_init failed") unless rc == 1
+      begin
+        # Initialize for derive
+        rc = LibCrypto.evp_pkey_derive_init(ctx)
+        raise OpenSSL::Error.new("EVP_PKEY_derive_init failed") unless rc == 1
 
-          # Provide the peer public key
-          rc = LibCrypto.evp_pkey_derive_set_peer(ctx, peer_pkey)
-          raise OpenSSL::Error.new("EVP_PKEY_derive_set_peer failed (curve mismatch or invalid key)") unless rc == 1
+        # Provide the peer public key
+        rc = LibCrypto.evp_pkey_derive_set_peer(ctx, peer_pkey)
+        raise OpenSSL::Error.new("EVP_PKEY_derive_set_peer failed (curve mismatch or invalid key)") unless rc == 1
 
-          # Query output length
-          out_len = LibC::SizeT.new(0)
-          rc = LibCrypto.evp_pkey_derive(ctx, Pointer(UInt8).null, pointerof(out_len))
-          raise OpenSSL::Error.new("EVP_PKEY_derive(size) failed") unless rc == 1
-          raise OpenSSL::Error.new("unexpected zero length from derive") if out_len == 0
+        # Query output length
+        out_len = LibC::SizeT.new(0)
+        rc = LibCrypto.evp_pkey_derive(ctx, Pointer(UInt8).null, pointerof(out_len))
+        raise OpenSSL::Error.new("EVP_PKEY_derive(size) failed") unless rc == 1
+        raise OpenSSL::Error.new("unexpected zero length from derive") if out_len == 0
 
-          # Derive into buffer
-          secret = Bytes.new(out_len)
-          rc = LibCrypto.evp_pkey_derive(ctx, secret.to_unsafe, pointerof(out_len))
-          raise OpenSSL::Error.new("EVP_PKEY_derive failed") unless rc == 1
+        # Derive into buffer
+        secret = Bytes.new(out_len)
+        rc = LibCrypto.evp_pkey_derive(ctx, secret.to_unsafe, pointerof(out_len))
+        raise OpenSSL::Error.new("EVP_PKEY_derive failed") unless rc == 1
 
-          # Trim in case provider wrote fewer bytes than estimated
-          secret[0, out_len]
-        ensure
-          LibCrypto.evp_pkey_ctx_free(ctx)
-        end
+        # Trim in case provider wrote fewer bytes than estimated
+        secret[0, out_len]
+      ensure
+        LibCrypto.evp_pkey_ctx_free(ctx)
       end
-    {% end %}
+    end
 
     private def ec
       LibCrypto.evp_pkey_get1_ec_key(self)
