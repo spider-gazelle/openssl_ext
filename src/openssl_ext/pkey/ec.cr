@@ -302,22 +302,32 @@ module OpenSSL::PKey
       end
     end
 
-    # Export private key as raw bytes
+    # Export private key as raw bytes (zero-padded to curve size)
     def private_key_bytes : Bytes
       raise EcError.new("not a private key") unless private?
 
       priv_bn = LibCrypto.ec_key_get0_private_key(ec)
       raise EcError.new("failed to get private key") if priv_bn.null?
 
-      # Calculate the size needed: BN_num_bytes is a macro that does (BN_num_bits + 7) / 8
+      # Get the expected size from the curve's degree (e.g., 256 bits for P-256 = 32 bytes)
+      group = LibCrypto.ec_key_get0_group(ec)
+      raise EcError.new("failed to get EC group") if group.null?
+      degree = LibCrypto.ec_group_get_degree(group)
+      raise EcError.new("failed to get curve degree") if degree <= 0
+      expected_size = (degree + 7) // 8
+
+      # Get the actual size of the BigNum
       num_bits = LibCrypto.bn_num_bits(priv_bn)
       raise EcError.new("failed to get private key bits") if num_bits <= 0
-      size = (num_bits + 7) // 8
+      actual_size = (num_bits + 7) // 8
 
-      # Allocate buffer and convert
-      bytes = Bytes.new(size)
-      result = LibCrypto.bn_to_bin(priv_bn, bytes.to_unsafe.as(LibC::Char*))
-      raise EcError.new("failed to convert private key to bytes") if result != size
+      # Allocate buffer for the full curve size (zero-initialized)
+      bytes = Bytes.new(expected_size, 0_u8)
+
+      # Write the BigNum bytes to the end of the buffer (right-justified with zero padding)
+      offset = expected_size - actual_size
+      result = LibCrypto.bn_to_bin(priv_bn, (bytes.to_unsafe + offset).as(LibC::Char*))
+      raise EcError.new("failed to convert private key to bytes") if result != actual_size
 
       bytes
     end
