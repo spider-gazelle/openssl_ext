@@ -9,87 +9,45 @@ class OpenSSL::GETS_BIO
   GETS_BIO = begin
     crystal_bio = OpenSSL::BIO::CRYSTAL_BIO
 
-    {% if compare_versions(Crystal::VERSION, "1.19.1") > 0 %}
-      ctrl = ->(bio : LibCrypto::Bio*, cmd : LibC::Int, _num : LibC::Long, _ptr : Void*) do
-        val = case cmd
-              when LibCrypto::CTRL_FLUSH
-                io = Box(IO).unbox(BIO.get_data(bio))
-                io.flush
-                1
-              when LibCrypto::CTRL_PUSH, LibCrypto::CTRL_POP, LibCrypto::CTRL_EOF
-                0
-              when BIO_C_FILE_TELL, BIO_C_FILE_SEEK
-                0
-              when LibCrypto::CTRL_SET_KTLS_SEND
-                0
-              when LibCrypto::CTRL_GET_KTLS_SEND, LibCrypto::CTRL_GET_KTLS_RECV
-                0
-              else
-                STDERR.puts "WARNING: Unsupported BIO ctrl call (#{cmd})"
-                0
-              end
-        LibC::Long.new(val)
+    ctrl = LibCrypto::BioMethodCtrl.new do |bio, cmd, _num, _ptr|
+      val = case cmd
+            when LibCrypto::CTRL_FLUSH
+              io = Box(IO).unbox(BIO.get_data(bio))
+              io.flush
+              1
+            when LibCrypto::CTRL_PUSH, LibCrypto::CTRL_POP, LibCrypto::CTRL_EOF
+              0
+            when BIO_C_FILE_TELL, BIO_C_FILE_SEEK
+              0
+            when LibCrypto::CTRL_SET_KTLS_SEND
+              0
+            when LibCrypto::CTRL_GET_KTLS_SEND, LibCrypto::CTRL_GET_KTLS_RECV
+              0
+            else
+              STDERR.puts "WARNING: Unsupported BIO ctrl call (#{cmd})"
+              0
+            end
+      LibCrypto::Long.new(val)
+    end
+
+    bgets = LibCrypto::BioMethodGets.new do |bio, buffer, len|
+      io = Box(IO).unbox(BIO.get_data(bio))
+      io.flush
+
+      position = io.pos
+
+      line = io.gets(len, false)
+
+      if line.nil?
+        0
+      else
+        io.seek(position)
+        bytes = io.read(Slice.new(buffer, line.bytesize)).to_i
+
+        bytes -= 1 unless bytes == 1
+        bytes
       end
-
-      bgets = ->(bio : LibCrypto::Bio*, buffer : LibC::Char*, len : LibC::Int) do
-        io = Box(IO).unbox(BIO.get_data(bio))
-        io.flush
-
-        position = io.pos
-
-        line = io.gets(len, false)
-
-        if line.nil?
-          0
-        else
-          io.seek(position)
-          bytes = io.read(Slice.new(buffer.as(UInt8*), line.bytesize)).to_i
-
-          bytes -= 1 unless bytes == 1
-          bytes
-        end
-      end
-    {% else %}
-      ctrl = LibCrypto::BioMethodCtrl.new do |bio, cmd, _num, _ptr|
-        val = case cmd
-              when LibCrypto::CTRL_FLUSH
-                io = Box(IO).unbox(BIO.get_data(bio))
-                io.flush
-                1
-              when LibCrypto::CTRL_PUSH, LibCrypto::CTRL_POP, LibCrypto::CTRL_EOF
-                0
-              when BIO_C_FILE_TELL, BIO_C_FILE_SEEK
-                0
-              when LibCrypto::CTRL_SET_KTLS_SEND
-                0
-              when LibCrypto::CTRL_GET_KTLS_SEND, LibCrypto::CTRL_GET_KTLS_RECV
-                0
-              else
-                STDERR.puts "WARNING: Unsupported BIO ctrl call (#{cmd})"
-                0
-              end
-        LibC::Long.new(val)
-      end
-
-      bgets = LibCrypto::BioMethodGets.new do |bio, buffer, len|
-        io = Box(IO).unbox(BIO.get_data(bio))
-        io.flush
-
-        position = io.pos
-
-        line = io.gets(len, false)
-
-        if line.nil?
-          0
-        else
-          io.seek(position)
-          bytes = io.read(Slice.new(buffer.as(UInt8*), line.bytesize)).to_i
-
-          bytes -= 1 unless bytes == 1
-          bytes
-        end
-      end
-    {% end %}
+    end
     # use our version of ctrl to avoid warnings
     # is also more performant than the standard library version
     {% if compare_versions(LibCrypto::OPENSSL_VERSION, "1.1.0") >= 0 %}
