@@ -9,10 +9,10 @@ class OpenSSL::GETS_BIO
   GETS_BIO = begin
     crystal_bio = OpenSSL::BIO::CRYSTAL_BIO
 
-    ctrl = LibCrypto::BioMethodCtrl.new do |bio, cmd, _num, _ptr|
+    ctrl = Proc(LibCrypto::Bio*, LibC::Int, LibC::Long, Void*, LibC::Long).new do |bio, cmd, _num, _ptr|
       val = case cmd
             when LibCrypto::CTRL_FLUSH
-              io = Box(IO).unbox(BIO.get_data(bio))
+              io = Box(IO).unbox(LibCrypto.BIO_get_data(bio))
               io.flush
               1
             when LibCrypto::CTRL_PUSH, LibCrypto::CTRL_POP, LibCrypto::CTRL_EOF
@@ -30,8 +30,8 @@ class OpenSSL::GETS_BIO
       LibCrypto::Long.new(val)
     end
 
-    bgets = LibCrypto::BioMethodGets.new do |bio, buffer, len|
-      io = Box(IO).unbox(BIO.get_data(bio))
+    bgets = Proc(LibCrypto::Bio*, LibC::Char*, LibC::Int, LibC::Int).new do |bio, buffer, len|
+      io = Box(IO).unbox(LibCrypto.BIO_get_data(bio))
       io.flush
 
       position = io.pos
@@ -70,7 +70,7 @@ class OpenSSL::GETS_BIO
     # not in Crystal-land.
     @boxed_io = Box(IO).box(io)
 
-    BIO.set_data(@bio, @boxed_io)
+    LibCrypto.BIO_set_data(@bio, @boxed_io)
   end
 
   def finalize
