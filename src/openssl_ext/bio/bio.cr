@@ -10,16 +10,17 @@ class OpenSSL::GETS_BIO
     crystal_bio = OpenSSL::BIO::CRYSTAL_BIO
 
     ctrl = Proc(LibCrypto::Bio*, LibC::Int, LibC::Long, Void*, LibC::Long).new do |bio, cmd, _num, _ptr|
+      bio_obj = Box(OpenSSL::BIO).unbox(LibCrypto.BIO_get_data(bio))
       val = case cmd
             when LibCrypto::CTRL_FLUSH
-              io = Box(IO).unbox(LibCrypto.BIO_get_data(bio))
+              io = bio_obj.io
               io.flush
               1
             when LibCrypto::CTRL_PUSH, LibCrypto::CTRL_POP, LibCrypto::CTRL_EOF
               0
             when BIO_C_FILE_TELL, BIO_C_FILE_SEEK
               0
-            when LibCrypto::CTRL_SET_KTLS_SEND
+            when LibCrypto::CTRL_SET_KTLS
               0
             when LibCrypto::CTRL_GET_KTLS_SEND, LibCrypto::CTRL_GET_KTLS_RECV
               0
@@ -31,7 +32,8 @@ class OpenSSL::GETS_BIO
     end
 
     bgets = Proc(LibCrypto::Bio*, LibC::Char*, LibC::Int, LibC::Int).new do |bio, buffer, len|
-      io = Box(IO).unbox(LibCrypto.BIO_get_data(bio))
+      bio_obj = Box(OpenSSL::BIO).unbox(LibCrypto.BIO_get_data(bio))
+      io = bio_obj.io
       io.flush
 
       position = io.pos
@@ -60,21 +62,26 @@ class OpenSSL::GETS_BIO
     crystal_bio
   end
 
-  @boxed_io : Void*
+  @bridge_bio : OpenSSL::BIO
+  @boxed_bio : Void*
 
   def initialize(@io : IO)
     @bio = LibCrypto.BIO_new(GETS_BIO)
+    raise BioError.new("BIO_new") if @bio.null?
 
-    # We need to store a reference to the box because it's
-    # stored in `@bio.value.ptr`, but that lives in C-land,
-    # not in Crystal-land.
-    @boxed_io = Box(IO).box(io)
+    # Crystal's BIO read/write callbacks unbox OpenSSL::BIO from BIO data.
+    # Keep a dedicated bridge object so those callbacks can access `#io` safely.
+    @bridge_bio = OpenSSL::BIO.new(io)
 
-    LibCrypto.BIO_set_data(@bio, @boxed_io)
+    # Keep a reference to this box because it lives in C-land.
+    @boxed_bio = Box(OpenSSL::BIO).box(@bridge_bio)
+
+    LibCrypto.BIO_set_data(@bio, @boxed_bio)
   end
 
   def finalize
     LibCrypto.bio_free_all(@bio)
+    LibCrypto.bio_free_all(@bridge_bio.to_unsafe)
   end
 
   getter io
